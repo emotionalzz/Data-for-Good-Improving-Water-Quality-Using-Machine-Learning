@@ -1,0 +1,181 @@
+var water = ee.ImageCollection('JRC/GSW1_0/MonthlyHistory')
+var PP = ee.FeatureCollection('projects/waterexplore-ztc-ztc01216/assets/disjoint_garbage')
+
+//Get list of geometries
+var geometries = PP.geometry().geometries()
+
+//Get the type of geometries
+var feature = function(geo){
+  var type = ee.Geometry(geo).type()
+  return ee.Feature(ee.Geometry(geo), {'type': type})
+}
+
+//Keep geometry of type polygon
+var PP1 = ee.FeatureCollection(geometries.map(feature)).filterMetadata('type', 'equals', 'Polygon') //18108
+
+//Calculate the maximum area of each geometry
+var max_area = ee.Image.pixelArea().multiply(water.first().lt(3)).reduceRegions({
+  reducer: ee.Reducer.sum(),
+  collection: PP1
+})
+var PP2 = max_area.select(["sum"], ["max_area"])
+
+//Add ID for each geometry
+var ids = ee.List.sequence(1, PP2.size())
+var id = function(feature){
+  var id = ee.Feature(feature).id()
+  return ee.Feature(feature).set('id', id)
+}
+var PP3 = PP2.map(id)
+
+//Calculate IAF per month for each wetland
+var rate = function(Feature){
+  var rate = ee.Number(ee.Feature(Feature).getNumber('no_data')).divide(ee.Number(ee.Feature(Feature).getNumber('max_area')))
+  return ee.Feature(Feature).set('rate', rate)
+}
+
+var iaf = function(Feature){
+  var iaf = ee.Number(ee.Feature(Feature).getNumber('water')).divide(ee.Number(ee.Feature(Feature).getNumber('max_area')))
+  return ee.Feature(Feature).set('iaf', iaf)
+}
+
+var computeArea = function(img){
+  var water = ee.Image.pixelArea().multiply(ee.Image(img).eq(2)).reduceRegions({
+    reducer: ee.Reducer.sum(),
+    collection: PP3
+  })
+  var PP4 = water.select(["max_area", "id", "sum"], ["max_area", "id", "water"])
+  var no_data = ee.Image.pixelArea().multiply(ee.Image(img).eq(0)).reduceRegions({
+    reducer: ee.Reducer.sum(),
+    collection: PP4
+  })
+  var PP5 = no_data.select(["max_area", "id", "water", "sum"], ["max_area", "id", "water", "no_data"])
+  var PP6 = PP5.map(rate)
+  var PP7 = PP6.map(iaf)
+  var month = ee.Image(img).get('month')
+  return PP7.set({'month': month})
+}
+
+var area = water.map(computeArea)
+
+var Jan = area.filterMetadata('month', 'equals', 1)
+var Feb = area.filterMetadata('month', 'equals', 2)
+var Mar = area.filterMetadata('month', 'equals', 3)
+var Apr = area.filterMetadata('month', 'equals', 4)
+var May = area.filterMetadata('month', 'equals', 5)
+var Jun = area.filterMetadata('month', 'equals', 6)
+var Jul = area.filterMetadata('month', 'equals', 7)
+var Aug = area.filterMetadata('month', 'equals', 8)
+var Sep = area.filterMetadata('month', 'equals', 9)
+var Oct = area.filterMetadata('month', 'equals', 10)
+var Nov = area.filterMetadata('month', 'equals', 11)
+var Dec = area.filterMetadata('month', 'equals', 12)
+
+
+var Jan_fl = Jan.flatten()
+var Feb_fl = Feb.flatten()
+var Mar_fl = Mar.flatten()
+var Apr_fl = Apr.flatten()
+var May_fl = May.flatten()
+var Jun_fl = Jun.flatten()
+var Jul_fl = Jul.flatten()
+var Aug_fl = Aug.flatten()
+var Sep_fl = Sep.flatten()
+var Oct_fl = Oct.flatten()
+var Nov_fl = Nov.flatten()
+var Dec_fl = Dec.flatten()
+
+//Retain ID, IAF and rate for each wetland
+var feature = function(feature){
+  var f = ee.Feature(feature)
+  var id = f.get('id')
+  var iaf = f.get('iaf')
+  var rate = f.get('rate')
+  return ee.Feature(null, {'id': id, 'iaf': iaf, 'rate': rate})
+}
+
+var Jan2 = Jan_fl.map(feature)
+var Feb2 = Feb_fl.map(feature)
+var Mar2 = Mar_fl.map(feature)
+var Apr2 = Apr_fl.map(feature)
+var May2 = May_fl.map(feature)
+var Jun2 = Jun_fl.map(feature)
+var Jul2 = Jul_fl.map(feature)
+var Aug2 = Aug_fl.map(feature)
+var Sep2 = Sep_fl.map(feature)
+var Oct2 = Oct_fl.map(feature)
+var Nov2 = Nov_fl.map(feature)
+var Dec2 = Dec_fl.map(feature)
+
+//Export IAF
+Export.table.toDrive({
+  collection: Jan2,
+  description: 'Jan2',
+  fileFormat: 'CSV'
+});
+
+Export.table.toDrive({
+  collection: Feb2,
+  description: 'Feb2',
+  fileFormat: 'CSV'
+});
+
+Export.table.toDrive({
+  collection: Mar2,
+  description: 'Mar2',
+  fileFormat: 'CSV'
+});
+
+Export.table.toDrive({
+  collection: Apr2,
+  description: 'Apr2',
+  fileFormat: 'CSV'
+});
+
+Export.table.toDrive({
+  collection: May2,
+  description: 'May2',
+  fileFormat: 'CSV'
+});
+
+Export.table.toDrive({
+  collection: Jun2,
+  description: 'Jun2',
+  fileFormat: 'CSV'
+});
+
+Export.table.toDrive({
+  collection: Jul2,
+  description: 'Jul2',
+  fileFormat: 'CSV'
+});
+
+Export.table.toDrive({
+  collection: Aug2,
+  description: 'Aug2',
+  fileFormat: 'CSV'
+});
+
+Export.table.toDrive({
+  collection: Sep2,
+  description: 'Sep2',
+  fileFormat: 'CSV'
+});
+
+Export.table.toDrive({
+  collection: Oct2,
+  description: 'Oct2',
+  fileFormat: 'CSV'
+});
+
+Export.table.toDrive({
+  collection: Nov2,
+  description: 'Nov2',
+  fileFormat: 'CSV'
+});
+
+Export.table.toDrive({
+  collection: Dec2,
+  description: 'Dec2',
+  fileFormat: 'CSV'
+});

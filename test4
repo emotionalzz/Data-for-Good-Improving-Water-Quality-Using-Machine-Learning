@@ -1,0 +1,21 @@
+var water = ee.ImageCollection('JRC/GSW1_0/MonthlyHistory')
+var PP = ee.FeatureCollection('projects/waterexplore-ztc-ztc01216/assets/disjoint_garbage')
+var wetlandscape = PP.geometry().bounds()
+
+var list = water.toList(water.size())
+
+//calculate wettest month
+var computeWater = function(img){
+  var water = ee.Image(img).eq(2).reduceRegion({
+    reducer: ee.Reducer.sum(),
+    geometry: wetlandscape
+  })
+  return water
+} 
+
+var waterArea = list.map(computeWater)
+
+//var max_area = ee.Image.pixelArea().multiply(water.first().lt(3)).reduceRegions({
+//  reducer: ee.Reducer.sum(),
+//  collection: PP1
+//})

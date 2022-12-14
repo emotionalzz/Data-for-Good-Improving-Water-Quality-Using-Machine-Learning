@@ -1,0 +1,202 @@
+/**** Start of imports. If edited, may not auto-convert in the playground. ****/
+var water = ee.ImageCollection("JRC/GSW1_0/MonthlyHistory"),
+    PP = ee.FeatureCollection("projects/waterexplore-ztc-ztc01216/assets/disjoint_garbage");
+/***** End of imports. If edited, may not auto-convert in the playground. *****/
+//Extract monthly data
+var Jan = ee.ImageCollection('JRC/GSW1_0/MonthlyHistory') 
+    .filter(ee.Filter.eq('month', 1))
+var Feb = ee.ImageCollection('JRC/GSW1_0/MonthlyHistory')
+    .filter(ee.Filter.eq('month', 2))
+var Mar = ee.ImageCollection('JRC/GSW1_0/MonthlyHistory')
+    .filter(ee.Filter.eq('month', 3))
+var Apr = ee.ImageCollection('JRC/GSW1_0/MonthlyHistory')
+    .filter(ee.Filter.eq('month', 4))
+var May = ee.ImageCollection('JRC/GSW1_0/MonthlyHistory')
+    .filter(ee.Filter.eq('month', 5))
+var Jun = ee.ImageCollection('JRC/GSW1_0/MonthlyHistory')
+    .filter(ee.Filter.eq('month', 6))
+var Jul = ee.ImageCollection('JRC/GSW1_0/MonthlyHistory')
+    .filter(ee.Filter.eq('month', 7))    
+var Aug = ee.ImageCollection('JRC/GSW1_0/MonthlyHistory')
+    .filter(ee.Filter.eq('month', 8))    
+var Sep = ee.ImageCollection('JRC/GSW1_0/MonthlyHistory')
+    .filter(ee.Filter.eq('month', 9))
+var Oct = ee.ImageCollection('JRC/GSW1_0/MonthlyHistory')
+    .filter(ee.Filter.eq('month', 10))
+var Nov = ee.ImageCollection('JRC/GSW1_0/MonthlyHistory')
+    .filter(ee.Filter.eq('month', 11))
+var Dec = ee.ImageCollection('JRC/GSW1_0/MonthlyHistory')
+.filter(ee.Filter.eq('month', 12))
+
+//Convert to list
+var List = water.toList(water.size()) //31
+var List_1 = Jan.toList(Jan.size())   //31
+var List_2 = Feb.toList(Feb.size())   //32
+var List_3 = Mar.toList(Mar.size())   //32
+var List_4 = Apr.toList(Apr.size())   //32
+var List_5 = May.toList(May.size())   //32
+var List_6 = Jun.toList(Jun.size())   //32
+var List_7 = Jul.toList(Jul.size())   //32
+var List_8 = Aug.toList(Aug.size())   //32
+var List_9 = Sep.toList(Sep.size())   //32
+var List_10 = Oct.toList(Oct.size())  //32 
+var List_11 = Nov.toList(Nov.size())  //31
+var List_12 = Dec.toList(Dec.size())  //31 
+
+//Max area
+var max_area = ee.Image.pixelArea().multiply(water.first().lt(3)).reduceRegions({
+  reducer: ee.Reducer.sum(),
+  collection: PP
+})
+
+var max = max_area.aggregate_array('sum')
+//print(max.size())
+
+//IAF
+var flatten = function(List){
+  return ee.List(List).flatten()
+}
+
+var iaf = function(List){
+  var list = ee.List(List)
+  var iaf = ee.Algorithms.If(
+    ee.Number(list.get(1)).lt(ee.Number(list.get(2)).multiply(ee.Number(0.05))),
+    ee.Number(list.get(0)).divide(ee.Number(list.get(2))),
+    ee.Number(2))
+  return iaf
+}
+
+var computeIAF = function(Image){
+  var water_area = ee.Image.pixelArea().multiply(ee.Image(Image).eq(2)).reduceRegions({
+    reducer: ee.Reducer.sum(),
+    collection: PP
+  }).aggregate_array('sum')
+  var no_data_area = ee.Image.pixelArea().multiply(ee.Image(Image).eq(0)).reduceRegions({
+    reducer: ee.Reducer.sum(),
+    collection: PP
+  }).aggregate_array('sum')
+  var list = water_area.zip(no_data_area).zip(max)
+  var list1 = list.map(flatten)
+  var IAF = list1.map(iaf).removeAll([2])
+  return IAF
+}
+
+//IAF1
+var iaf1 = function(List){
+  var list = ee.List(List)
+  var iaf = ee.Number(list.get(0)).divide(ee.Number(list.get(1)))
+  return iaf
+}
+
+var computeIAF1 = function(Image){
+  var water_area = ee.Image.pixelArea().multiply(ee.Image(Image).eq(2)).reduceRegions({
+    reducer: ee.Reducer.sum(),
+    collection: PP
+  }).aggregate_array('sum')
+  var list = water_area.zip(max)
+  var list1 = list.map(iaf1)
+  return list1
+}
+
+//Calculate the mean value of April
+var Apr_IAF = List_4.map(computeIAF).flatten()
+var Apr_mean = Apr_IAF.reduce(ee.Reducer.mean())
+
+var Apr_IAF1 = List_4.map(computeIAF1).flatten()
+//var b = 
+var Apr_mean1 = Apr_IAF1.reduce(ee.Reducer.mean())
+
+//print(Apr_mean)
+//print(Apr_mean1)
+
+//IAF2
+var max_property = function(Feature){
+  var max = ee.Feature(Feature).getNumber('sum')
+  return ee.Feature(Feature).set('max_extent', max)
+}
+
+var wet_property = function(Feature){
+  var wet = ee.Feature(Feature).getNumber('sum')
+  return ee.Feature(Feature).set('wet', wet)
+}
+
+var no_data_property = function(Feature){
+  var no_data = ee.Feature(Feature).getNumber('sum')
+  return ee.Feature(Feature).set('no_data', no_data)
+}
+
+var rate = function(Feature){
+  var rate = ee.Number(ee.Feature(Feature).getNumber('no_data')).divide(ee.Number(ee.Feature(Feature).getNumber('max_extent')))
+  return ee.Feature(Feature).set('rate', rate)
+}
+
+var iaf2 = function(Feature){
+  var iaf = ee.Number(ee.Feature(Feature).getNumber('wet')).divide(ee.Number(ee.Feature(Feature).getNumber('max_extent')))
+  return ee.Feature(Feature).set('iaf', iaf)
+}
+
+var feature = function(Feature){
+  return ee.Feature(null, {'iaf': ee.Feature(Feature).get('iaf'), 'rate': ee.Feature(Feature).get('rate')})
+}
+
+var PP_new = max_area.map(max_property)
+
+var computeIAF2 = function(Image){
+  var water_detected = ee.Image.pixelArea().multiply(ee.Image(Image).eq(2)).reduceRegions({
+    collection: PP_new,
+    reducer: ee.Reducer.sum()
+  })
+  var PP_1 = water_detected.map(wet_property)
+  var no_data = ee.Image.pixelArea().multiply(ee.Image(Image).eq(0)).reduceRegions({
+    collection: PP_1,
+    reducer: ee.Reducer.sum()
+  })
+  var PP_2 = no_data.map(no_data_property)
+  var PP_3 = PP_2.map(rate)
+  var PP_4 = PP_3.map(iaf2)
+  var PP_5 = PP_4.filterMetadata('rate', 'less_than', 0.05)
+  var PP_6 = PP_5.map(feature)
+  return PP_6
+}
+
+var Apr_IAF2 = ee.FeatureCollection(List_4.map(computeIAF2)).flatten()
+var May_IAF2 = ee.FeatureCollection(List_5.map(computeIAF2)).flatten()
+
+//Export.table.toDrive({
+//  collection: May_IAF2,
+//  description: 'test2',
+//  fileFormat: 'CSV'
+//});
+
+var e = ee.Image.pixelArea().multiply(water.first().lt(3)).reduceRegion({
+    geometry: PP,
+    reducer: ee.Reducer.sum()
+  })
+
+var a = function(Image){
+  var water_area = ee.Image.pixelArea().multiply(ee.Image(Image).eq(2)).reduceRegion({
+    geometry: PP,
+    reducer: ee.Reducer.sum()
+  })
+  var no_data_area = ee.Image.pixelArea().multiply(ee.Image(Image).eq(0)).reduceRegion({
+    geometry: PP,
+    reducer: ee.Reducer.sum()
+  })
+  //var iaf = ee.Algorithms.If(ee.Number(no_data_area.get('sum')).lt(ee.Number(b.get('sum')).multiply(ee.Number(0.05))),
+  //ee.Number(water_area.get('sum')).divide(ee.Number(b.get('sum'))),
+  //ee.Number(2))
+  var iaf = ee.Number(water_area.get('area')).divide(ee.Number(e.get('area')))
+  return iaf
+}
+
+var b = List_4.get(9)
+var c = List_4.remove(b)
+
+var d = c.map(a)
+
+print(d)
+print(d.reduce(ee.Reducer.mean()))
+
+
+
+

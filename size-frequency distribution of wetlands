@@ -1,0 +1,22 @@
+var PP = ee.FeatureCollection('projects/waterexplore-ztc-ztc01216/assets/disjoint_garbage')
+var geometry = PP.geometry() //18119
+var geometries = geometry.geometries()
+
+//Calculate the area of each wetland
+var computeArea = function(geo){
+  return ee.Geometry(geo).area()
+}
+
+var area1 = geometries.map(computeArea)
+var area2 = area1.removeAll([0])
+
+var feature = function(item){
+  return ee.Feature(null, {'area': ee.Number(item)})
+}
+
+var fea = ee.FeatureCollection(area2.map(feature))
+
+var hist = ui.Chart.feature.histogram(fea, 'area', 200)
+
+print(hist)
+

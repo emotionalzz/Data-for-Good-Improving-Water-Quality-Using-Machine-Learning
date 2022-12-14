@@ -1,0 +1,100 @@
+/**** Start of imports. If edited, may not auto-convert in the playground. ****/
+var image = ee.Image("JRC/GSW1_0/Metadata");
+/***** End of imports. If edited, may not auto-convert in the playground. *****/
+var water = ee.ImageCollection('JRC/GSW1_0/MonthlyHistory')
+var PP = ee.FeatureCollection('projects/waterexplore-ztc-ztc01216/assets/disjoint_garbage')
+var geometry = PP.geometry().bounds()
+
+//Extract monthly data
+var Jan = ee.ImageCollection('JRC/GSW1_0/MonthlyHistory')
+    .filter(ee.Filter.eq('month', 1))
+var Feb = ee.ImageCollection('JRC/GSW1_0/MonthlyHistory')
+    .filter(ee.Filter.eq('month', 2))
+var Mar = ee.ImageCollection('JRC/GSW1_0/MonthlyHistory')
+    .filter(ee.Filter.eq('month', 3))
+var Apr = ee.ImageCollection('JRC/GSW1_0/MonthlyHistory')
+    .filter(ee.Filter.eq('month', 4))
+var May = ee.ImageCollection('JRC/GSW1_0/MonthlyHistory')
+    .filter(ee.Filter.eq('month', 5))
+var Jun = ee.ImageCollection('JRC/GSW1_0/MonthlyHistory')
+    .filter(ee.Filter.eq('month', 6))
+var Jul = ee.ImageCollection('JRC/GSW1_0/MonthlyHistory')
+    .filter(ee.Filter.eq('month', 7))    
+var Aug = ee.ImageCollection('JRC/GSW1_0/MonthlyHistory')
+    .filter(ee.Filter.eq('month', 8))    
+var Sep = ee.ImageCollection('JRC/GSW1_0/MonthlyHistory')
+    .filter(ee.Filter.eq('month', 9))
+var Oct = ee.ImageCollection('JRC/GSW1_0/MonthlyHistory')
+    .filter(ee.Filter.eq('month', 10))
+var Nov = ee.ImageCollection('JRC/GSW1_0/MonthlyHistory')
+    .filter(ee.Filter.eq('month', 11))
+var Dec = ee.ImageCollection('JRC/GSW1_0/MonthlyHistory')
+.filter(ee.Filter.eq('month', 12))
+
+//Convert to list
+var List = water.toList(water.size())
+var List_1 = Jan.toList(Jan.size())
+var List_2 = Feb.toList(Feb.size())
+var List_3 = Mar.toList(Mar.size())
+var List_4 = Apr.toList(Apr.size())
+var List_5 = May.toList(May.size())
+var List_6 = Jun.toList(Jun.size())
+var List_7 = Jul.toList(Jul.size())
+var List_8 = Aug.toList(Aug.size())
+var List_9 = Sep.toList(Sep.size())
+var List_10 = Oct.toList(Oct.size())
+var List_11 = Nov.toList(Nov.size())
+var List_12 = Dec.toList(Dec.size())
+
+var max_area = ee.Image.pixelArea().multiply(water.first().lt(3)).reduceRegions({
+  reducer: ee.Reducer.sum(),
+  collection: PP
+}).aggregate_array('sum')
+
+//print(max_area)
+
+var b = function(List){
+  var list = ee.List(List)
+  return ee.Number(list.get(0)).divide(ee.Number(list.get(1)))
+}
+
+
+var a = function(Img){
+  var n = ee.Image.pixelArea().multiply(ee.Image(Img).eq(0)).reduceRegions({
+    reducer: ee.Reducer.sum(),
+    collection: PP
+  }).aggregate_array('sum')
+  var f = n.zip(max_area)
+  var d = f.map(b)
+  var fi = d.filter(ee.Filter.lt('item', 0.05))
+  return fi.size()
+}
+
+var A = List_4.map(a)
+var M = List_3.map(a)
+print(M)
+
+//print(A)
+
+var c = List_4.get(9)
+var d = List_4.remove(c)
+//print(d.size())
+
+var e = function(Img){
+  var w = ee.Image.pixelArea().multiply(ee.Image(Img).eq(2)).reduceRegions({
+    reducer: ee.Reducer.sum(),
+    collection: PP
+  }).aggregate_array('sum')
+  var f = w.zip(max_area)
+  var d = f.map(b)
+  return d.reduce(ee.Reducer.mean())
+}
+
+var f = d.map(e)
+
+var g = List_5.map(e)
+
+print(g)
+
+//print(f.reduce(ee.Reducer.mean()))
+
